@@ -1,5 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { MapPin, Phone, Activity, Search, Menu, ChevronRight, Heart, Wind, ArrowLeft } from "lucide-react";
+
+// --- MAP IMPORTS ---
+import "leaflet/dist/leaflet.css";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+
+// Fix for default Leaflet marker icon not showing
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// --- HELPER TO RE-CENTER MAP WHEN AMBULANCE MOVES ---
+function RecenterMap({ lat, lng }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng]);
+  }, [lat, lng, map]);
+  return null;
+}
+
 const useWindowSize = () => {
   const [size, setSize] = useState([1200, 800]);
   useEffect(() => {
@@ -12,6 +38,7 @@ const useWindowSize = () => {
   }, []);
   return size;
 };
+
 const Sidebar = ({ isMobile, selectedId, setSelectedId, searchTerm, setSearchTerm, filteredList, activeCount }) => {
   const isFullWidth = !selectedId && !isMobile;
   return (
@@ -32,7 +59,7 @@ const Sidebar = ({ isMobile, selectedId, setSelectedId, searchTerm, setSearchTer
             <span style={styles.statsNumber}>{activeCount}</span>
           </div>
         </div>
-        <div style={{ ...styles.listContainer, display: isFullWidth ? 'grid' : 'flex', gridTemplateColumns: isFullWidth ? 'repeat(auto-fill, minmax(300px, 1fr))' : 'flex', gap: isFullWidth ? '16px' : '8px' }}>
+        <div style={{ ...styles.listContainer, display: isFullWidth ? 'grid' : 'grid', gridTemplateColumns: isFullWidth ? 'repeat(auto-fill, minmax(300px, 1fr))' : '1fr', gap: isFullWidth ? '16px' : '8px' }}>
           {filteredList.map((item) => (
             <div key={item.id} style={{ ...styles.listItem, borderLeft: selectedId === item.id ? '4px solid #2D2F54' : '4px solid transparent', backgroundColor: selectedId === item.id ? '#F3F4F6' : 'white', border: isFullWidth ? '1px solid #E5E7EB' : '1px solid transparent', boxShadow: isFullWidth ? '0 2px 5px rgba(0,0,0,0.05)' : 'none', }} onClick={() => setSelectedId(item.id)}>
               <div>
@@ -48,14 +75,16 @@ const Sidebar = ({ isMobile, selectedId, setSelectedId, searchTerm, setSearchTer
     </div>
   );
 };
+
 const DetailView = ({ isMobile, selectedId, setSelectedId, activeAmbulance }) => {
   if (!activeAmbulance) return null;
   if (isMobile && !selectedId) return null;
-  if (activeAmbulance) {
-    return (
+
+  return (
       <div style={{ ...styles.main, display: 'flex' }}>
         {isMobile && (<button style={styles.backBtn} onClick={() => setSelectedId(null)}> <ArrowLeft size={20} /> Back to Fleet </button>)}
         {!isMobile && (<button style={styles.backBtn} onClick={() => setSelectedId(null)}> <ArrowLeft size={20} /> Back to Dashboard </button>)}
+        
         <div style={styles.topBar}>
           <div>
             <h2 style={styles.sectionTitle}>{activeAmbulance.id} - Live Feed</h2>
@@ -65,6 +94,7 @@ const DetailView = ({ isMobile, selectedId, setSelectedId, activeAmbulance }) =>
             {activeAmbulance.status}
           </div>
         </div>
+
         <div style={styles.vitalsGrid}>
           <div style={styles.vitalCard}>
             <div style={{ ...styles.iconBox, backgroundColor: '#FEF2F2', color: '#EF4444' }}><Heart size={24} /></div>
@@ -79,34 +109,51 @@ const DetailView = ({ isMobile, selectedId, setSelectedId, activeAmbulance }) =>
             <div><div style={styles.vitalLabel}>Oxygen Level</div><div style={styles.vitalValue}>{activeAmbulance.vitals.o2} <span style={styles.unit}>%</span></div></div>
           </div>
         </div>
+
         <div style={styles.mapSection}>
           <div style={styles.mapHeader}>Live Location Tracking</div>
+          
+          {/* --- REAL MAP CONTAINER --- */}
           <div style={styles.mapContainer}>
-            <div style={styles.mapVisual}>
-              <div style={styles.mapGridLines}></div>
-              <div style={styles.pinWrapper}>
-                <div style={styles.pinTooltip}>{activeAmbulance.id}</div>
-                <MapPin size={48} color="#EF4444" fill="#EF4444" />
-                <div style={styles.pulse}></div>
-              </div>
-            </div>
-            <div style={styles.driverFooter}>
-              <div style={styles.driverInfo}>
-                <div style={styles.driverAvatar}>ID</div>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>{activeAmbulance.driver}</div>
-                  <div style={styles.driverStatus}>GPS Signal: Strong • Updated 1s ago</div>
-                </div>
-              </div>
-              <button style={styles.callButton}><Phone size={20} color="white" /></button>
-            </div>
+             <MapContainer 
+                center={[activeAmbulance.location.lat, activeAmbulance.location.lng]} 
+                zoom={15} 
+                style={{ height: "100%", width: "100%", zIndex: 0 }}
+                scrollWheelZoom={true}
+             >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                
+                {/* Marker for the Ambulance */}
+                <Marker position={[activeAmbulance.location.lat, activeAmbulance.location.lng]}>
+                  <Popup>
+                    <b>{activeAmbulance.id}</b><br />
+                    HR: {activeAmbulance.vitals.hr} bpm
+                  </Popup>
+                </Marker>
+
+                {/* Auto-center map when coordinates change */}
+                <RecenterMap lat={activeAmbulance.location.lat} lng={activeAmbulance.location.lng} />
+             </MapContainer>
+          </div>
+
+          <div style={styles.driverFooter}>
+             <div style={styles.driverInfo}>
+               <div style={styles.driverAvatar}>ID</div>
+               <div>
+                 <div style={{ fontWeight: 'bold' }}>{activeAmbulance.driver}</div>
+                 <div style={styles.driverStatus}>GPS Signal: Strong • {activeAmbulance.location.lat.toFixed(4)}, {activeAmbulance.location.lng.toFixed(4)}</div>
+               </div>
+             </div>
+             <button style={styles.callButton}><Phone size={20} color="white" /></button>
           </div>
         </div>
       </div>
     );
-  }
-  return null;
 };
+
 export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -115,55 +162,61 @@ export default function App() {
   const isMobile = width < 768;
   const activeAmbulance = ambulanceList.find(a => a.id === selectedId);
   const filteredList = ambulanceList.filter(a => a.id.toLowerCase().includes(searchTerm.toLowerCase()));
+
   useEffect(() => {
     const fetchAmbulanceData = async () => {
       try {
         const response = await fetch('http://localhost:3000/api/ambulance/status');
         if (!response.ok) return;
         const data = await response.json();
+        
         if (data) {
-          if (Array.isArray(data)) {
-            const newActiveList = data.filter(d => d.patient && d.patient.isOnboard).map(d => ({
-              id: d.vehicleId || d.ambulanceId,
-              status: "EMERGENCY",
-              driver: "Unknown Driver",
-              location: { lat: d.location.latitude, lng: d.location.longitude },
-              vitals: { hr: d.patient.vitals.heartRate, bp: d.patient.vitals.bloodPressure || "--/--", o2: d.patient.vitals.spO2 }
-            }));
-            setAmbulanceList(newActiveList);
-          } else {
-            setAmbulanceList(prevList => {
-              if (data.patient && data.patient.isOnboard) {
-                const exists = prevList.find(a => a.id === data.vehicleId);
-                if (exists) {
-                  return prevList.map(a => a.id === data.vehicleId ? {
-                    ...a,
-                    status: "EMERGENCY",
-                    location: { lat: data.location.latitude, lng: data.location.longitude },
-                    vitals: { hr: data.patient.vitals.heartRate, bp: data.patient.vitals.bloodPressure || "--/--", o2: data.patient.vitals.spO2 }
-                  } : a);
-                } else {
-                  return [...prevList, {
-                    id: data.vehicleId,
-                    status: "EMERGENCY",
-                    driver: "Unknown Driver",
-                    location: { lat: data.location.latitude, lng: data.location.longitude },
-                    vitals: { hr: data.patient.vitals.heartRate, bp: data.patient.vitals.bloodPressure || "--/--", o2: data.patient.vitals.spO2 }
-                  }];
-                }
-              } else {
-                return prevList.filter(a => a.id !== data.vehicleId);
-              }
-            });
-          }
+          // Normalize data whether it's an array (list) or object (single)
+          const dataArray = Array.isArray(data) ? data : [data];
+          
+          setAmbulanceList(prevList => {
+             // Create a map of existing ambulances for easy lookup
+             const prevMap = new Map(prevList.map(item => [item.id, item]));
+             
+             dataArray.forEach(d => {
+                 // Only process valid data
+                 if(!d.vehicleId && !d.ambulanceId) return;
+
+                 const id = d.vehicleId || d.ambulanceId;
+                 
+                 // If patient is ONBOARD, add/update. If NOT, remove/don't add.
+                 // (Adjust logic here if you want to see empty ambulances too)
+                 if (d.patient && d.patient.isOnboard) {
+                     prevMap.set(id, {
+                         id: id,
+                         status: "EMERGENCY",
+                         driver: "Unknown Driver",
+                         location: { lat: parseFloat(d.location.latitude), lng: parseFloat(d.location.longitude) },
+                         vitals: { 
+                             hr: d.patient.vitals.heartRate, 
+                             bp: d.patient.vitals.bloodPressure || "--/--", 
+                             o2: d.patient.vitals.spO2 
+                         }
+                     });
+                 } else {
+                     // Optionally remove empty ambulances from the "Active Emergency" list
+                     // prevMap.delete(id); 
+                 }
+             });
+
+             return Array.from(prevMap.values());
+          });
         }
       } catch (error) {
         console.error("Polling error:", error);
       }
     };
-    const intervalId = setInterval(fetchAmbulanceData, 500);
+    
+    // Poll every 1 second for smooth map movement
+    const intervalId = setInterval(fetchAmbulanceData, 1000);
     return () => clearInterval(intervalId);
   }, []);
+
   return (
     <div style={styles.app}>
       <Sidebar isMobile={isMobile} selectedId={selectedId} setSelectedId={setSelectedId} searchTerm={searchTerm} setSearchTerm={setSearchTerm} filteredList={filteredList} activeCount={ambulanceList.length} />
@@ -171,6 +224,7 @@ export default function App() {
     </div>
   );
 }
+
 const styles = {
   app: { display: "flex", height: "100vh", width: "100vw", fontFamily: "'Inter', sans-serif", backgroundColor: "#F9FAFB", overflow: "hidden" },
   sidebar: { backgroundColor: "white", flexDirection: "column", zIndex: 20, flexShrink: 0, height: "100%", transition: "all 0.3s ease" },
@@ -188,9 +242,6 @@ const styles = {
   itemId: { fontWeight: "700", color: "#111827", fontSize: "15px" },
   itemStatus: { fontSize: "12px", fontWeight: "600", marginTop: "2px" },
   main: { flex: 1, flexDirection: "column", padding: "30px", overflowY: "auto", gap: "24px", backgroundColor: "#F3F4F6", height: "100%", animation: "fadeIn 0.3s ease-in" },
-  emptyState: { alignItems: "center", justifyContent: "center", color: "#9CA3AF" },
-  emptyIcon: { fontSize: "64px", marginBottom: "20px", opacity: 0.5 },
-  emptyText: { fontSize: "18px", fontWeight: "500" },
   backBtn: { display: "flex", alignItems: "center", gap: "8px", border: "none", background: "transparent", marginBottom: "16px", fontSize: "14px", fontWeight: "600", color: "#4B5563", cursor: "pointer", padding: 0 },
   topBar: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
   sectionTitle: { fontSize: "24px", fontWeight: "800", color: "#111827", margin: "0 0 4px 0" },
@@ -204,11 +255,7 @@ const styles = {
   unit: { fontSize: "12px", color: "#9CA3AF", fontWeight: "500" },
   mapSection: { flex: 1, display: "flex", flexDirection: "column", gap: "12px", minHeight: "400px", borderRadius: "16px", overflow: "hidden" },
   mapHeader: { fontSize: "16px", fontWeight: "700", color: "#374151" },
-  mapContainer: { flex: 1, backgroundColor: "white", borderRadius: "16px", border: "1px solid #E5E7EB", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)" },
-  mapVisual: { flex: 1, backgroundColor: "#E5E7EB", backgroundImage: "radial-gradient(#CBD5E1 1px, transparent 1px)", backgroundSize: "20px 20px", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" },
-  pinWrapper: { display: "flex", flexDirection: "column", alignItems: "center", transform: "translateY(-20px)", zIndex: 10 },
-  pinTooltip: { backgroundColor: "#111827", color: "white", padding: "6px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: "bold", marginBottom: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" },
-  pulse: { width: "20px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(239, 68, 68, 0.2)", animation: "pulse 2s infinite", position: "absolute", bottom: "-5px" },
+  mapContainer: { flex: 1, backgroundColor: "white", borderRadius: "16px", border: "1px solid #E5E7EB", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)", zIndex: 0 },
   driverFooter: { padding: "16px 24px", backgroundColor: "white", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" },
   driverInfo: { display: "flex", alignItems: "center", gap: "16px" },
   driverAvatar: { width: "40px", height: "40px", backgroundColor: "#F3F4F6", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#6B7280" },
