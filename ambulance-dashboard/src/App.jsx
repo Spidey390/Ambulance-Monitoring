@@ -10,21 +10,25 @@ import L from "leaflet";
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // --- HELPER TO RE-CENTER MAP WHEN AMBULANCE MOVES ---
 function RecenterMap({ lat, lng }) {
   const map = useMap();
+
   useEffect(() => {
-    map.setView([lat, lng]);
+    map.invalidateSize();   // 👈 VERY IMPORTANT
+    map.setView([lat, lng], 15);
   }, [lat, lng, map]);
+
   return null;
 }
+
 
 const useWindowSize = () => {
   const [size, setSize] = useState([1200, 800]);
@@ -81,77 +85,75 @@ const DetailView = ({ isMobile, selectedId, setSelectedId, activeAmbulance }) =>
   if (isMobile && !selectedId) return null;
 
   return (
-      <div style={{ ...styles.main, display: 'flex' }}>
-        {isMobile && (<button style={styles.backBtn} onClick={() => setSelectedId(null)}> <ArrowLeft size={20} /> Back to Fleet </button>)}
-        {!isMobile && (<button style={styles.backBtn} onClick={() => setSelectedId(null)}> <ArrowLeft size={20} /> Back to Dashboard </button>)}
-        
-        <div style={styles.topBar}>
-          <div>
-            <h2 style={styles.sectionTitle}>{activeAmbulance.id} - Live Feed</h2>
-            <span style={styles.driverName}>Driver: {activeAmbulance.driver}</span>
-          </div>
-          <div style={{ ...styles.statusBadge, backgroundColor: '#FEE2E2', color: '#991B1B' }}>
-            {activeAmbulance.status}
-          </div>
+    <div style={{ ...styles.main, display: 'flex' }}>
+      {isMobile && (<button style={styles.backBtn} onClick={() => setSelectedId(null)}> <ArrowLeft size={20} /> Back to Fleet </button>)}
+      {!isMobile && (<button style={styles.backBtn} onClick={() => setSelectedId(null)}> <ArrowLeft size={20} /> Back to Dashboard </button>)}
+
+      <div style={styles.topBar}>
+        <div>
+          <h2 style={styles.sectionTitle}>{activeAmbulance.id} - Live Feed</h2>
+          <span style={styles.driverName}>Driver: {activeAmbulance.driver}</span>
         </div>
-
-        <div style={styles.vitalsGrid}>
-          <div style={styles.vitalCard}>
-            <div style={{ ...styles.iconBox, backgroundColor: '#FEF2F2', color: '#EF4444' }}><Heart size={24} /></div>
-            <div><div style={styles.vitalLabel}>Heart Rate</div><div style={styles.vitalValue}>{activeAmbulance.vitals.hr} <span style={styles.unit}>bpm</span></div></div>
-          </div>
-          <div style={styles.vitalCard}>
-            <div style={{ ...styles.iconBox, backgroundColor: '#EFF6FF', color: '#3B82F6' }}><Activity size={24} /></div>
-            <div><div style={styles.vitalLabel}>Blood Pressure</div><div style={styles.vitalValue}>{activeAmbulance.vitals.bp} <span style={styles.unit}>mmHg</span></div></div>
-          </div>
-          <div style={styles.vitalCard}>
-            <div style={{ ...styles.iconBox, backgroundColor: '#F0FDF4', color: '#22C55E' }}><Wind size={24} /></div>
-            <div><div style={styles.vitalLabel}>Oxygen Level</div><div style={styles.vitalValue}>{activeAmbulance.vitals.o2} <span style={styles.unit}>%</span></div></div>
-          </div>
-        </div>
-
-        <div style={styles.mapSection}>
-          <div style={styles.mapHeader}>Live Location Tracking</div>
-          
-          {/* --- REAL MAP CONTAINER --- */}
-          <div style={styles.mapContainer}>
-             <MapContainer 
-                center={[activeAmbulance.location.lat, activeAmbulance.location.lng]} 
-                zoom={15} 
-                style={{ height: "100%", width: "100%", zIndex: 0 }}
-                scrollWheelZoom={true}
-             >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                
-                {/* Marker for the Ambulance */}
-                <Marker position={[activeAmbulance.location.lat, activeAmbulance.location.lng]}>
-                  <Popup>
-                    <b>{activeAmbulance.id}</b><br />
-                    HR: {activeAmbulance.vitals.hr} bpm
-                  </Popup>
-                </Marker>
-
-                {/* Auto-center map when coordinates change */}
-                <RecenterMap lat={activeAmbulance.location.lat} lng={activeAmbulance.location.lng} />
-             </MapContainer>
-          </div>
-
-          <div style={styles.driverFooter}>
-             <div style={styles.driverInfo}>
-               <div style={styles.driverAvatar}>ID</div>
-               <div>
-                 <div style={{ fontWeight: 'bold' }}>{activeAmbulance.driver}</div>
-                 <div style={styles.driverStatus}>GPS Signal: Strong • {activeAmbulance.location.lat.toFixed(4)}, {activeAmbulance.location.lng.toFixed(4)}</div>
-               </div>
-             </div>
-             <button style={styles.callButton}><Phone size={20} color="white" /></button>
-          </div>
+        <div style={{ ...styles.statusBadge, backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+          {activeAmbulance.status}
         </div>
       </div>
-    );
+
+      <div style={styles.vitalsGrid}>
+        <div style={styles.vitalCard}>
+          <div style={{ ...styles.iconBox, backgroundColor: '#FEF2F2', color: '#EF4444' }}><Heart size={24} /></div>
+          <div><div style={styles.vitalLabel}>Heart Rate</div><div style={styles.vitalValue}>{activeAmbulance.vitals.hr} <span style={styles.unit}>bpm</span></div></div>
+        </div>
+        <div style={styles.vitalCard}>
+          <div style={{ ...styles.iconBox, backgroundColor: '#EFF6FF', color: '#3B82F6' }}><Activity size={24} /></div>
+          <div><div style={styles.vitalLabel}>Blood Pressure</div><div style={styles.vitalValue}>{activeAmbulance.vitals.bp} <span style={styles.unit}>mmHg</span></div></div>
+        </div>
+        <div style={styles.vitalCard}>
+          <div style={{ ...styles.iconBox, backgroundColor: '#F0FDF4', color: '#22C55E' }}><Wind size={24} /></div>
+          <div><div style={styles.vitalLabel}>Oxygen Level</div><div style={styles.vitalValue}>{activeAmbulance.vitals.o2} <span style={styles.unit}>%</span></div></div>
+        </div>
+      </div>
+
+      <div style={styles.mapSection}>
+        <div style={styles.mapHeader}>Live Location Tracking</div>
+
+        {/* --- REAL MAP CONTAINER --- */}
+        <div style={styles.mapContainer}>
+          <MapContainer
+            center={[activeAmbulance.location.lat, activeAmbulance.location.lng]}
+            zoom={15}
+            style={{ height: "100%", width: "100%" }}
+          >
+            <FixMapSize />
+
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="© OpenStreetMap contributors"
+            />
+
+            <Marker
+              position={[
+                activeAmbulance.location.lat,
+                activeAmbulance.location.lng
+              ]}
+            />
+          </MapContainer>
+
+        </div>
+
+        <div style={styles.driverFooter}>
+          <div style={styles.driverInfo}>
+            <div style={styles.driverAvatar}>ID</div>
+            <div>
+              <div style={{ fontWeight: 'bold' }}>{activeAmbulance.driver}</div>
+              <div style={styles.driverStatus}>GPS Signal: Strong • {activeAmbulance.location.lat.toFixed(4)}, {activeAmbulance.location.lng.toFixed(4)}</div>
+            </div>
+          </div>
+          <button style={styles.callButton}><Phone size={20} color="white" /></button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function App() {
@@ -169,49 +171,49 @@ export default function App() {
         const response = await fetch('http://localhost:3000/api/ambulance/status');
         if (!response.ok) return;
         const data = await response.json();
-        
+
         if (data) {
           // Normalize data whether it's an array (list) or object (single)
           const dataArray = Array.isArray(data) ? data : [data];
-          
+
           setAmbulanceList(prevList => {
-             // Create a map of existing ambulances for easy lookup
-             const prevMap = new Map(prevList.map(item => [item.id, item]));
-             
-             dataArray.forEach(d => {
-                 // Only process valid data
-                 if(!d.vehicleId && !d.ambulanceId) return;
+            // Create a map of existing ambulances for easy lookup
+            const prevMap = new Map(prevList.map(item => [item.id, item]));
 
-                 const id = d.vehicleId || d.ambulanceId;
-                 
-                 // If patient is ONBOARD, add/update. If NOT, remove/don't add.
-                 // (Adjust logic here if you want to see empty ambulances too)
-                 if (d.patient && d.patient.isOnboard) {
-                     prevMap.set(id, {
-                         id: id,
-                         status: "EMERGENCY",
-                         driver: "Unknown Driver",
-                         location: { lat: parseFloat(d.location.latitude), lng: parseFloat(d.location.longitude) },
-                         vitals: { 
-                             hr: d.patient.vitals.heartRate, 
-                             bp: d.patient.vitals.bloodPressure || "--/--", 
-                             o2: d.patient.vitals.spO2 
-                         }
-                     });
-                 } else {
-                     // Optionally remove empty ambulances from the "Active Emergency" list
-                     // prevMap.delete(id); 
-                 }
-             });
+            dataArray.forEach(d => {
+              // Only process valid data
+              if (!d.vehicleId && !d.ambulanceId) return;
 
-             return Array.from(prevMap.values());
+              const id = d.vehicleId || d.ambulanceId;
+
+              // If patient is ONBOARD, add/update. If NOT, remove/don't add.
+              // (Adjust logic here if you want to see empty ambulances too)
+              if (d.patient && d.patient.isOnboard) {
+                prevMap.set(id, {
+                  id: id,
+                  status: "EMERGENCY",
+                  driver: "Unknown Driver",
+                  location: { lat: parseFloat(d.location.latitude), lng: parseFloat(d.location.longitude) },
+                  vitals: {
+                    hr: d.patient.vitals.heartRate,
+                    bp: d.patient.vitals.bloodPressure || "--/--",
+                    o2: d.patient.vitals.spO2
+                  }
+                });
+              } else {
+                // Optionally remove empty ambulances from the "Active Emergency" list
+                // prevMap.delete(id); 
+              }
+            });
+
+            return Array.from(prevMap.values());
           });
         }
       } catch (error) {
         console.error("Polling error:", error);
       }
     };
-    
+
     // Poll every 1 second for smooth map movement
     const intervalId = setInterval(fetchAmbulanceData, 1000);
     return () => clearInterval(intervalId);
@@ -224,6 +226,21 @@ export default function App() {
     </div>
   );
 }
+
+function FixMapSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 500);   // wait for layout to settle
+
+    return () => clearTimeout(timer);
+  }, [map]);
+
+  return null;
+}
+
 
 const styles = {
   app: { display: "flex", height: "100vh", width: "100vw", fontFamily: "'Inter', sans-serif", backgroundColor: "#F9FAFB", overflow: "hidden" },
@@ -253,9 +270,23 @@ const styles = {
   vitalLabel: { fontSize: "13px", color: "#6B7280", fontWeight: "600", marginBottom: "2px" },
   vitalValue: { fontSize: "20px", fontWeight: "800", color: "#111827" },
   unit: { fontSize: "12px", color: "#9CA3AF", fontWeight: "500" },
-  mapSection: { flex: 1, display: "flex", flexDirection: "column", gap: "12px", minHeight: "400px", borderRadius: "16px", overflow: "hidden" },
+  mapSection: {
+    display: "flex",
+    flexDirection: "column",
+    height: "60vh",   // 👈 Professional dashboard height
+  },
+
+
   mapHeader: { fontSize: "16px", fontWeight: "700", color: "#374151" },
-  mapContainer: { flex: 1, backgroundColor: "white", borderRadius: "16px", border: "1px solid #E5E7EB", overflow: "hidden", position: "relative", display: "flex", flexDirection: "column", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)", zIndex: 0 },
+  mapContainer: {
+    flex: 1,
+    minHeight: 0,     // 👈 VERY IMPORTANT for flex layouts
+    borderRadius: "16px",
+    overflow: "hidden",
+    border: "1px solid #E5E7EB",
+  }
+  ,
+
   driverFooter: { padding: "16px 24px", backgroundColor: "white", borderTop: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" },
   driverInfo: { display: "flex", alignItems: "center", gap: "16px" },
   driverAvatar: { width: "40px", height: "40px", backgroundColor: "#F3F4F6", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: "700", color: "#6B7280" },
