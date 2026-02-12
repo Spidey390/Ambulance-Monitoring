@@ -9,14 +9,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// --- MongoDB Connection ---
-const MONGO_URI = process.env.MONGO_URI;
+// -------------------- MongoDB Connection --------------------
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('✅ Connected to MongoDB Atlas'))
+    .catch(err => console.error('❌ MongoDB Error:', err));
 
-mongoose.connect(MONGO_URI)
-    .then(() => console.log('✅ Connected to MongoDB Cloud (Atlas)'))
-    .catch(err => console.error('❌ MongoDB Connection Error:', err));
-
-// --- Schema ---
+// -------------------- Schema --------------------
 const ambulanceSchema = new mongoose.Schema({
     ambulanceId: { type: String, required: true, unique: true },
     hasPatient: { type: Boolean, default: false },
@@ -29,58 +27,59 @@ const ambulanceSchema = new mongoose.Schema({
 
 const Ambulance = mongoose.model('Ambulance', ambulanceSchema);
 
-// --- Routes ---
-
-// 1. POST: IoT Device sends data here (Updates specific ambulance)
+// -------------------- POST Route (IoT Update) --------------------
 app.post('/api/ambulance/update', async (req, res) => {
     try {
         const { ambulanceId, hasPatient, heartRate, spo2, latitude, longitude } = req.body;
 
-        if (!ambulanceId) return res.status(400).send({ message: "ambulanceId required" });
+        if (!ambulanceId) {
+            return res.status(400).json({ message: "ambulanceId required" });
+        }
 
-        // Find and update the specific ambulance
-        const updatedData = await Ambulance.findOneAndUpdate(
-            { ambulanceId: ambulanceId },
+        await Ambulance.findOneAndUpdate(
+            { ambulanceId },
             {
-                $set: {
-                    hasPatient: hasPatient,
-                    heartRate: heartRate,
-                    spo2: spo2,
-                    latitude: latitude,
-                    longitude: longitude,
-                    lastUpdated: new Date()
-                }
+                hasPatient,
+                heartRate,
+                spo2,
+                latitude,
+                longitude,
+                lastUpdated: new Date()
             },
             { upsert: true, new: true }
         );
 
-        res.status(200).send({ message: "Data updated" });
+        res.status(200).json({ message: "Data updated successfully" });
 
     } catch (error) {
-        console.error("Save Error:", error);
-        res.status(500).send({ message: "Server Error" });
+        console.error("Update Error:", error);
+        res.status(500).json({ message: "Server Error" });
     }
 });
 
-// 2. GET: Frontend fetches data here (Returns ALL Ambulances)
+// -------------------- GET Route (Frontend Status) --------------------
 app.get('/api/ambulance/status', async (req, res) => {
     try {
-        // CHANGE: Use .find() instead of .findOne() to get the whole list
-        const allAmbulances = await Ambulance.find({});
+        const ambulances = await Ambulance.find({});
+        const now = new Date();
+        const OFFLINE_THRESHOLD = 10; // seconds
 
-        if (!allAmbulances || allAmbulances.length === 0) return res.json([]);
+        const formatted = ambulances.map(amb => {
 
-        // Format the list for the Frontend
-        const formattedList = allAmbulances.map(amb => {
-            // Calculate status for each ambulance
-            let status = "IDLE";
-            if (amb.hasPatient) {
-                status = (amb.heartRate > 100 || amb.heartRate < 60) ? "EMERGENCY" : "EN_ROUTE";
+            let status = "OFFLINE";
+            const seconds = (now - amb.lastUpdated) / 1000;
+
+            if (seconds <= OFFLINE_THRESHOLD) {
+                if (!amb.hasPatient) {
+                    status = "IDLE";
+                } else {
+                    status = "EMERGENCY";
+                }
             }
 
             return {
                 vehicleId: amb.ambulanceId,
-                status: status,
+                status,
                 lastUpdated: amb.lastUpdated,
                 location: {
                     latitude: amb.latitude,
@@ -97,14 +96,15 @@ app.get('/api/ambulance/status', async (req, res) => {
             };
         });
 
-        res.json(formattedList);
+        res.json(formatted);
 
     } catch (error) {
         console.error("Fetch Error:", error);
-        res.status(500).send({ message: "Server Error" });
+        res.status(500).json({ message: "Server Error" });
     }
 });
 
+// -------------------- Start Server --------------------
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
