@@ -182,8 +182,7 @@ export default function AmbulanceDashboard() {
     useEffect(() => {
         const fetchAmbulanceData = async () => {
             try {
-                const response = await fetch('https://ambulance-monitoring.onrender.com/api/ambulance/status
-');
+                const response = await fetch("https://ambulance-monitoring.onrender.com/api/ambulance/status");
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data) {
