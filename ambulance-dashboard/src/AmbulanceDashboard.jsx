@@ -8,9 +8,9 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 let DefaultIcon = L.icon({
     iconUrl: ambulanceIcon,
     shadowUrl: iconShadow,
-    iconSize: [60, 60],
-    iconAnchor: [30, 60],
-    popupAnchor: [0, -60]
+    iconSize: [50, 50],
+    iconAnchor: [25, 50],
+    popupAnchor: [0, -50]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 const scrollbarStyles = `
@@ -40,29 +40,25 @@ function RecenterControl({ lat, lng }) {
         handleRecenter();
     }, [lat, lng]);
     return (
-        <div className="leaflet-bottom leaflet-right" style={{ marginBottom: "20px", marginRight: "10px", zIndex: 1000, pointerEvents: "auto" }}>
+        <div className="leaflet-bottom leaflet-right" style={{ marginBottom: "30px", marginRight: "12px", zIndex: 1000, pointerEvents: "auto" }}>
             <div className="leaflet-control">
                 <button
                     onClick={handleRecenter}
                     style={{
                         backgroundColor: "white",
-                        padding: "0 12px",
+                        width: "40px",
                         height: "40px",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: "8px",
                         border: "none",
                         cursor: "pointer",
                         borderRadius: "8px",
-                        boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                        fontWeight: "600",
-                        fontSize: "14px",
-                        color: "#333"
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                        color: "#666"
                     }}
                 >
-                    <Target size={18} color="#333" />
-                    <span>Recenter</span>
+                    <Target size={20} />
                 </button>
             </div>
         </div>
@@ -151,13 +147,14 @@ const DetailView = ({ isMobile, selectedId, setSelectedId, activeAmbulance }) =>
                         center={[activeAmbulance.location.lat, activeAmbulance.location.lng]}
                         zoom={15}
                         style={{ height: "100%", width: "100%" }}
+                        zoomControl={false}
                         attributionControl={false}
                     >
                         <FixMapSize />
                         <RecenterControl lat={activeAmbulance.location.lat} lng={activeAmbulance.location.lng} />
                         <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution="© OpenStreetMap contributors"
+                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
                         />
                         <Marker
                             position={[
@@ -196,26 +193,14 @@ export default function AmbulanceDashboard() {
                             const location = { lat: parseFloat(d.location.latitude), lng: parseFloat(d.location.longitude) };
                             let vitals = null;
                             if (d.patient && d.patient.isOnboard) {
-                                vitals = {
-                                    hr: d.patient.vitals.heartRate,
-                                    bp: d.patient.vitals.bloodPressure || "--/--",
-                                    o2: d.patient.vitals.spO2
-                                };
+                                vitals = { hr: d.patient.vitals.heartRate, bp: d.patient.vitals.bloodPressure || "--/--", o2: d.patient.vitals.spO2 };
                             }
-                            prevMap.set(id, {
-                                id: id,
-                                status: status,
-                                location: location,
-                                vitals: vitals
-                            });
+                            prevMap.set(id, { id: id, status: status, location: location, vitals: vitals });
                         });
                         const newList = Array.from(prevMap.values());
                         newList.sort((a, b) => {
                             const statusOrder = { EMERGENCY: 0, IDLE: 1, OFFLINE: 2 };
-                            const statusA = statusOrder[a.status] || 0;
-                            const statusB = statusOrder[b.status] || 0;
-                            if (statusA !== statusB) return statusA - statusB;
-                            return a.id.localeCompare(b.id);
+                            return (statusOrder[a.status] || 0) - (statusOrder[b.status] || 0) || a.id.localeCompare(b.id);
                         });
                         return newList;
                     });
@@ -238,9 +223,7 @@ export default function AmbulanceDashboard() {
 function FixMapSize() {
     const map = useMap();
     useEffect(() => {
-        const timer = setTimeout(() => {
-            map.invalidateSize();
-        }, 500);
+        const timer = setTimeout(() => { map.invalidateSize(); }, 500);
         return () => clearTimeout(timer);
     }, [map]);
     return null;
